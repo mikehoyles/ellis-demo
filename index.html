@@ -669,5 +669,19 @@ $("leadForm").addEventListener("submit",async e=>{
 fitAll(false);
 addEventListener("resize",()=>fitAll(false));
 </script>
+<!-- GA4 Demo Tracking -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var calLink = document.querySelector('a[href*="cal.com"]');
+        if (calLink) {
+          calLink.addEventListener('click', function() {
+            gtag('event', 'demo_booking_submit', {
+              'event_category': 'lead',
+              'event_label': 'demo_hireellis'
+            });
+          });
+        }
+      });
+    </script>
 </body>
 </html>
