@@ -140,6 +140,12 @@ svg{width:100%;height:100%;display:block}
 #inspNav button:hover{color:var(--ink);border-color:var(--ink3)}
 #agentsBtn{position:fixed;top:64px;left:14px;z-index:34;display:none;background:var(--bg2);border:1px solid var(--line);border-radius:99px;padding:8px 14px;font-size:12px;color:var(--ink2);cursor:pointer}
 #agentsBtn:hover{color:var(--ink);border-color:var(--ink3)}
+#narr{position:fixed;top:64px;left:50%;transform:translate(-50%,-12px);z-index:36;max-width:640px;width:calc(100vw - 28px);
+  background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border:1px solid var(--line);border-left:3px solid var(--coral);
+  border-radius:12px;padding:10px 16px;opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;box-shadow:var(--shadow)}
+#narr.show{opacity:1;transform:translate(-50%,0)}
+#narr .ntag{display:block;font-size:9px;font-weight:800;letter-spacing:.22em;color:var(--coral2);margin-bottom:3px}
+#narrTxt{font-size:13px;line-height:1.45;color:var(--ink)}
 #inspBody{padding:22px}
 .ihead{display:flex;gap:14px;align-items:center;margin-bottom:14px}
 .iav{width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;flex:none}
@@ -259,6 +265,7 @@ body.feedhidden #footCta{right:14px}
 </div>
 <div id="clickHint">👆 Click any agent for bio, connections & triggers</div>
 <button id="agentsBtn" onclick="openInsp(selId||'ceo')">☰ Agent profiles</button>
+<div id="narr"><span class="ntag">WHAT'S HAPPENING</span><div id="narrTxt"></div></div>
 <div id="legend"></div>
 
 <aside id="feed">
@@ -527,49 +534,83 @@ function pulse(childId,reverse,dur){
 }
 async function pulseChain(ids,reverse){
   if(reverse)ids=[...ids].reverse();
-  for(const id of ids)await pulse(id,reverse,520);
+  for(const id of ids)await pulse(id,reverse,750);
 }
 function chainTo(id){const c=[];let n=id;while(n&&nodes[n].parent){c.unshift(n);n=nodes[n].parent}return c}
 
+/* ===== narration overlay: phase-synced with the visuals ===== */
+const NARR_MAX=12, BG_NARR_MAX=4;
+let narrCount=0, bgNarrCount=0, narrHideT=null, lastNarrT=0, narrDone=false;
+function narrate(html){
+  $("narrTxt").innerHTML=html;
+  $("narr").classList.add("show");
+  lastNarrT=performance.now();
+  clearTimeout(narrHideT);
+  narrHideT=setTimeout(()=>$("narr").classList.remove("show"),9500);
+}
+function beginNarration(){
+  if(narrCount>=NARR_MAX){
+    if(!narrDone){narrDone=true;
+      narrate(`🎬 <b>You get the idea.</b> This never stops — the org clears hundreds of tasks a day exactly like this. Narration signing off; browse any agent's profile on the left, or hit ⏸ Pause and explore.`);}
+    return false;
+  }
+  narrCount++;return true;
+}
 /* cascade: Mike pings Ellis -> routed down to an agent -> result back */
 const CASCADES=[
-  {target:"inbound-sales",ask:"We just had a discovery call — work it up",label:"Building resource plan…"},
-  {target:"travel-agent",ask:"Find me flights to Dallas next week",label:"Comparing 40+ fares…"},
-  {target:"contract-manager",ask:"Draft an NDA for the new client",label:"Drafting NDA…"},
-  {target:"social-media",ask:"Post about that article",label:"Writing post + scheduling…"},
-  {target:"bookkeeper",ask:"File this receipt",label:"Filing → QuickBooks…"},
-  {target:"seo-content",ask:"What should we write next?",label:"Mining keyword gaps…"},
-  {target:"crm-data",ask:"Enrich the new leads",label:"Enriching 32 contacts…"},
-  {target:"meta-ads",ask:"How are the Meta ads pacing?",label:"Pulling campaign stats…"},
-  {target:"keyword-rank",ask:"Where do we rank for AI marketing?",label:"Checking 120 keywords…"},
-  {target:"outbound-sales",ask:"Queue the next outbound touch",label:"Personalizing sequence…"},
-  {target:"client-success",ask:"What's the status across clients?",label:"Sweeping 6 client boards…"},
-  {target:"corporate-counsel",ask:"Any risk in this new MSA?",label:"Reviewing clauses…"}
+  {target:"social-media",ask:"Post about that article",label:"Writing post + scheduling…",narr:"is writing the post, sizing the creative, and scheduling it to Facebook."},
+  {target:"social-media",ask:"Line up next week's social calendar",label:"Drafting 12 posts…",narr:"is drafting a week of posts across channels and queueing them in Buffer."},
+  {target:"written-content",ask:"Update the pricing page copy",label:"Editing + publishing in Framer…",narr:"is rewriting the section and publishing the update to the live site in Framer."},
+  {target:"content-director",ask:"What should we publish this week?",label:"Reviewing content pipeline…",narr:"is reviewing the pipeline and assigning briefs to the content team."},
+  {target:"video-multimedia",ask:"Turn that blog post into a short video",label:"Scripting + cutting short…",narr:"is scripting the short and prepping it for YouTube."},
+  {target:"meta-ads",ask:"How are the Meta ads pacing?",label:"Pulling campaign stats…",narr:"is pulling live campaign stats and checking pacing against budget."},
+  {target:"google-ads",ask:"Launch the search campaign for the new offer",label:"Building campaign…",narr:"is building the Google Ads campaign — keywords, copy, and budget caps."},
+  {target:"linkedin-ads",ask:"Refresh the LinkedIn audience targeting",label:"Rebuilding audiences…",narr:"is rebuilding the LinkedIn audiences and rebalancing spend."},
+  {target:"ad-performance",ask:"How did the site perform this week?",label:"Compiling cross-channel report…",narr:"is compiling the cross-channel report with what to scale and what to kill."},
+  {target:"budget-pacing",ask:"Are we on budget for the month?",label:"Checking pacing vs. plan…",narr:"is checking every channel's spend against plan and flagging overruns."},
+  {target:"email-lifecycle",ask:"Send the newsletter",label:"Building + scheduling send…",narr:"is building the send in HubSpot and scheduling it for the best send window."},
+  {target:"seo-content",ask:"What should we write next?",label:"Mining keyword gaps…",narr:"is mining keyword gaps to pick the next article worth writing."},
+  {target:"keyword-rank",ask:"Where do we rank for AI marketing?",label:"Checking 120 keywords…",narr:"is checking where the brand ranks across 120 tracked keywords."},
+  {target:"web-ux",ask:"Why isn't the landing page converting?",label:"Reading heatmaps…",narr:"is reading heatmaps and session data to find where visitors drop off."},
+  {target:"brand-design",ask:"Need a new ad creative for the promo",label:"Producing creative batch…",narr:"is producing the creative batch in Canva, on-brand and sized per channel."},
+  {target:"crm-data",ask:"Enrich the new leads",label:"Enriching 32 contacts…",narr:"is deduping and enriching 32 new leads directly in HubSpot."},
+  {target:"bookkeeper",ask:"File this receipt",label:"Filing → QuickBooks…",narr:"is scanning the receipt, categorizing the expense, filing it to Drive, and syncing it to QuickBooks."},
+  {target:"inbound-sales",ask:"We just had a discovery call — work it up",label:"Building resource plan…",narr:"is pulling the discovery-call transcript and turning it into a scoped resource plan and draft proposal."},
+  {target:"client-success",ask:"What's the status across clients?",label:"Sweeping 6 client boards…",narr:"is sweeping all six client boards for status, risks, and open items."}
 ];
 async function runCascade(){
   const c=CASCADES[Math.floor(Math.random()*CASCADES.length)];
   if(!nodes[c.target])return;
+  const tgt=nodes[c.target].a, tell=beginNarration();
   feedEntry("__mike","📱 "+c.ask);
+  if(tell)narrate(`<b>Mike → Telegram:</b> “${c.ask}” — Ellis is reading the request…`);
   setWorking("__mike","",700);
   const chain=chainTo(c.target);
-  setWorking("ceo","Routing intent…",1100);
+  setWorking("ceo","Routing intent…",1700);
   feedEntry("ceo","Intent analyzed → delegating silently");
+  if(tell)setTimeout(()=>narrate(`<b>Ellis</b> parsed the intent and is routing it down the org to <b>${tgt.name}</b>, the ${tgt.title}.`),2300);
   followCam("ceo",.8);
   await pulseChain(chain,false);
   const a=ORG[c.target];
   followCam(c.target,.9);
-  setWorking(c.target,c.label,3200);
+  setWorking(c.target,c.label,5600);
   feedEntry(c.target,c.label.replace("…","")+" ");
-  await new Promise(r=>setTimeout(r,3000));
+  if(tell&&c.narr)narrate(`<b>${tgt.name}</b> (${tgt.title}) ${c.narr}`);
+  await new Promise(r=>setTimeout(r,5300));
   bump("tasks");
   followCam("ceo",.8);
   await pulseChain(chain,true);
   feedEntry("ceo","✓ Done. Responding to Mike as one voice.");
+  if(tell)narrate(`✓ <b>${tgt.name}</b> reported back up the chain — <b>Ellis</b> replies to Mike as one voice. One text. Zero meetings.`);
 }
 /* timed trigger firing */
 function fireTimed(ev){
   const bits=actionBits(ev.t),a=ORG[ev.id];
   setWorking(ev.id,ev.t.name,2200);
+  if(bgNarrCount<BG_NARR_MAX&&narrCount>0&&!narrDone&&!paused&&performance.now()-lastNarrT>10000){
+    bgNarrCount++;
+    narrate(`⚙️ Meanwhile, in the background: <b>${a.name}</b> just fired its scheduled “${ev.t.name}” — nobody asked, it just runs. The output lands in Mike's Telegram.`);
+  }
   feedEntry(ev.id,`${ev.t.name}: ${bits.slice(0,2).join(" → ")||"running"}`);
   bump("tasks");
   if(ev.id==="email-lifecycle"&&/Nightly/i.test(ev.t.name))bump("emails",Math.floor(380+Math.random()*220));
@@ -608,8 +649,8 @@ function loop(t){
     }
     $("vtime").textContent=fmt(vmin);$("vday").textContent=DAYS[dayIx];
   }
-  if(cascT>14+Math.random()*10){cascT=0;runCascade()}
-  if(adhocT>5+Math.random()*6){adhocT=0;fireAdhoc()}
+  if(cascT>26+Math.random()*14){cascT=0;runCascade()}
+  if(adhocT>8+Math.random()*7){adhocT=0;fireAdhoc()}
 }
 requestAnimationFrame(loop);
 $("speed").addEventListener("click",()=>{speed=speed===1?2:speed===2?4:1;$("speed").textContent=speed+"×"});
